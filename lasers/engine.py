@@ -14,7 +14,7 @@ from mathutils import Euler, Matrix, Vector
 from ..audio import colors as acolors
 from ..core import constants as K
 from ..core import utils
-from . import audio_color, collision, driver, geometry, materials
+from . import audio_color, collision, driver, geometry, looping, materials
 
 
 # --------------------------------------------------------------------- objetos
@@ -67,9 +67,14 @@ def remove_generated(uid):
 
 # ----------------------------------------------------------------------- audio
 class _AudioState:
-    """Niveles de audio del frame actual (ceros si el rig no reacciona)."""
+    """Niveles de audio del frame actual (ceros si el rig no reacciona).
 
-    def __init__(self, scene, s, frame):
+    Con un loop activo el driver se envuelve en ``looping.LoopDriver``: todo el
+    muestreo (nivel, ola por rayo, color) cae dentro del rango y se mezcla en la
+    costura, asi el audio tambien cierra.
+    """
+
+    def __init__(self, scene, s, frame, plan=None):
         self.drv = None
         self.aset = getattr(scene, "al", None)
         self.t = 0.0
@@ -78,6 +83,9 @@ class _AudioState:
         drv = driver.get_driver(scene, s)
         if drv is None:
             return
+        if plan is not None:
+            drv = looping.LoopDriver(drv, drv.time_at(plan.start), plan.period,
+                                     blend=s.loop_audio_blend)
         self.drv = drv
         self.t = drv.time_at(frame)
         self.level = drv.level(self.t)
@@ -91,6 +99,33 @@ class _AudioState:
         if self.drv is None or not s.audio_on_brightness:
             return 1.0
         return (1.0 - s.audio_brightness) + s.audio_brightness * 2.0 * level
+
+
+def _beam_dir(s, i, N, spread, M, w, w_wave_y, t):
+    """Direccion del rayo ``i`` (patron + onda por rayo + giro/barrido ``M``)."""
+    # ---- patron de direcciones (eje local +Z) ----
+    if s.pattern == 'CONE':
+        th = 0.0 if N == 1 else (spread * 0.5) * math.sqrt((i + 0.5) / N)
+        ph = i * K.GOLDEN
+        d = Vector((math.sin(th) * math.cos(ph), math.sin(th) * math.sin(ph),
+                    math.cos(th)))
+    elif s.pattern == 'CROSS':
+        grp = i & 1
+        j = i >> 1
+        cnt = (N + 1 - grp) // 2
+        a = ((j + 0.5) / cnt - 0.5) * spread
+        d = (Vector((math.sin(a), 0.0, math.cos(a))) if grp == 0
+             else Vector((0.0, math.sin(a), math.cos(a))))
+    else:  # FAN
+        a = ((i + 0.5) / N - 0.5) * spread
+        d = Vector((math.sin(a), 0.0, math.cos(a)))
+
+    # ---- onda armonica por rayo ----
+    if s.wave > 0.0:
+        p = (i / N) * K.TAU * s.wave_cycles
+        d = Euler((s.wave * math.sin(w * t + p),
+                   s.wave * math.cos(w_wave_y * t + 1.7 * p), 0.0)).to_matrix() @ d
+    return (M @ d).normalized()
 
 
 # -------------------------------------------------------------------- rebuild
@@ -115,37 +150,66 @@ def update_rig(rig, scene=None, dg=None):
     render = scene.render
     fps = render.fps / render.fps_base
     frame = scene.frame_current + scene.frame_subframe
-    if s.loop_anim:
-        # Loopear: al pasar el frame final el tiempo vuelve al inicio,
-        # asi el movimiento, el color y el pulso se repiten identicos.
-        start = float(s.loop_start)
-        span = float(max(1, s.loop_end - s.loop_start + 1))
-        frame = start + (frame - start) % span
-    t = frame / fps + s.time_offset
-    w = K.TAU * 0.25 * s.speed            # frecuencia base: 0.25 Hz * velocidad
+    al = getattr(scene, "al", None)
+    plan = None
+    if s.loop_anim and s.loop_end > s.loop_start:
+        plan = looping.LoopPlan(s.loop_start, s.loop_end, fps, s.loop_close_end)
+        # close_end: el frame END es identico al frame START.
+        frame = plan.wrap_frame(frame)
+        u = plan.local_time(frame)              # segundos dentro del loop
+        t = u + s.time_offset
+    else:
+        t = frame / fps + s.time_offset
 
-    aud = _AudioState(scene, s, frame)
-    # con audio, el BPM del pulso es el de la cancion (no hay que escribirlo)
+    # Frecuencias base. Con loop, cada oscilador (barrido, respiracion, onda,
+    # giro, pulso) y el giro de color se ajustan a ciclos ENTEROS por loop.
+    base_w = K.TAU * 0.25 * s.speed
+    w = base_w
+    w_breath = 0.6 * base_w
+    w_sweep_y = 0.73 * base_w
+    w_wave_y = 1.31 * base_w
+    spin_rate = math.radians(s.spin) * s.speed
+    color_rate = s.color_speed
+
+    aud = _AudioState(scene, s, frame, plan)
     bpm = aud.drv.bpm if aud.drv is not None else s.bpm
-    if aud.drv is not None and s.audio_on_speed:
-        w *= 1.0 + s.audio_speed * (aud.level - 0.4)
+    pulse_rate = bpm / 60.0
+
+    t_osc = t       # tiempo con el que avanzan giro / barrido / onda
+    if plan is not None:
+        rates = plan.rates(s.speed, s.spin, s.color_speed, bpm,
+                           len(acolors.palette_list(al)) if al is not None else 1)
+        w, w_breath = rates.w, rates.w_breath
+        w_sweep_y, w_wave_y = rates.w_sweep_y, rates.w_wave_y
+        spin_rate, color_rate = rates.spin_rate, rates.color_rate
+        pulse_rate = rates.pulse_rate
+        if aud.drv is not None and s.audio_on_speed:
+            # Movimiento con audio: el tiempo se acelera/frena con la musica pero
+            # siempre llega a END con los mismos ciclos completos.
+            t_osc = (aud.drv.warped_time(u, s.audio_speed, plan.frames)
+                     + s.time_offset)
+    elif aud.drv is not None and s.audio_on_speed:
+        audio_speed_factor = 1.0 + s.audio_speed * (aud.level - 0.4)
+        w *= audio_speed_factor
+        w_breath *= audio_speed_factor
+        w_sweep_y *= audio_speed_factor
+        w_wave_y *= audio_speed_factor
 
     N = s.count
-    al = aud.aset
     pal = acolors.palette_list(al) if al is not None else [(1.0, 1.0, 1.0)]
     seed = int(al.seed) if al is not None else 1
     nc = len(pal)
-    shift = int(math.floor(t * s.color_speed))
+    shift = int(math.floor(t * color_rate))
 
-    spread = min(s.spread * (1.0 + s.breath * math.sin(0.6 * w * t + 0.5)),
+    spread = min(s.spread * (1.0 + s.breath * math.sin(w_breath * t_osc + 0.5)),
                  math.radians(178.0))
     if aud.drv is not None and s.audio_on_spread:
         spread = utils.clamp(
             spread * (1.0 + s.audio_spread * (2.0 * aud.level - 1.0)),
             0.0, math.radians(178.0))
-    sweep = Euler((s.sweep * math.sin(w * t),
-                   s.sweep * 0.6 * math.sin(0.73 * w * t + 1.0), 0.0)).to_matrix()
-    spin = Matrix.Rotation(math.radians(s.spin) * s.speed * t, 3, 'Z')
+    sweep = Euler((s.sweep * math.sin(w * t_osc),
+                   s.sweep * 0.6 * math.sin(w_sweep_y * t_osc + 1.0), 0.0)).to_matrix()
+    spin = Matrix.Rotation(spin_rate * (t_osc if plan is not None else t), 3, 'Z')
     M = rot @ spin @ sweep
 
     section = geometry.circle_section(s.sides)
@@ -167,29 +231,7 @@ def update_rig(rig, scene=None, dg=None):
         if aud.drv is not None and s.chase > 0.0:
             level = aud.level_at(aud.t - s.chase * aud.T * (i / N))
 
-        # ---- patron de direcciones (eje local +Z) ----
-        if s.pattern == 'CONE':
-            th = 0.0 if N == 1 else (spread * 0.5) * math.sqrt((i + 0.5) / N)
-            ph = i * K.GOLDEN
-            d = Vector((math.sin(th) * math.cos(ph), math.sin(th) * math.sin(ph),
-                        math.cos(th)))
-        elif s.pattern == 'CROSS':
-            grp = i & 1
-            j = i >> 1
-            cnt = (N + 1 - grp) // 2
-            a = ((j + 0.5) / cnt - 0.5) * spread
-            d = (Vector((math.sin(a), 0.0, math.cos(a))) if grp == 0
-                 else Vector((0.0, math.sin(a), math.cos(a))))
-        else:  # FAN
-            a = ((i + 0.5) / N - 0.5) * spread
-            d = Vector((math.sin(a), 0.0, math.cos(a)))
-
-        # ---- onda armonica por rayo ----
-        if s.wave > 0.0:
-            p = (i / N) * K.TAU * s.wave_cycles
-            d = Euler((s.wave * math.sin(w * t + p),
-                       s.wave * math.cos(1.31 * w * t + 1.7 * p), 0.0)).to_matrix() @ d
-        d = (M @ d).normalized()
+        d = _beam_dir(s, i, N, spread, M, w, w_wave_y, t_osc)
 
         # ---- color (reactivo o de la paleta del rig) ----
         c = sampler.color(i) if sampler is not None else None
@@ -212,7 +254,7 @@ def update_rig(rig, scene=None, dg=None):
             if aud.drv is not None and s.audio_strobe:
                 f = level
             else:
-                f = 0.5 + 0.5 * math.cos(K.TAU * (t * bpm / 60.0 + s.chase * i / N))
+                f = 0.5 + 0.5 * math.cos(K.TAU * (t * pulse_rate + s.chase * i / N))
             pulse = 1.0 - s.pulse * (1.0 - f ** 3)
         bright = s.intensity * pulse * aud.brightness(s, level)
         if bright <= 1e-4:

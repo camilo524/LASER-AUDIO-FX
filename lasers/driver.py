@@ -43,6 +43,17 @@ class Driver:
                  else self.scene.frame_start)
         return (float(frame) - start) / fps - self.al.beat_shift_frames / fps
 
+    # Ganchos del loop: aqui no hacen nada; ``looping.LoopDriver`` los
+    # sobreescribe para que el audio sea periodico dentro del rango.
+    loop = False
+
+    def wrap(self, t):
+        return t
+
+    def mix(self, t):
+        """``(ta, tb, wb)``: senal = (1 - wb) * f(ta) + wb * f(tb)."""
+        return t, t, 0.0
+
     # ---------------------------------------------------------- muestreo
     def level(self, t):
         """Nivel del trigger elegido por el rig, 0..1."""

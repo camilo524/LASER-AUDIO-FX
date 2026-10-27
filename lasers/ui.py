@@ -1,8 +1,12 @@
 """Paneles del rig de lasers: forma, color, movimiento, audio e impactos."""
 
+import math
+
 import bpy
 
+from ..audio import colors as acolors
 from ..core.constants import CATEGORY
+from . import looping
 from .driver import get_driver, status as audio_status
 
 _STATUS_ICON = {
@@ -110,12 +114,32 @@ class LAFX_PT_anim(_RigPanel, bpy.types.Panel):
                 box.label(text="El frame final debe ser mayor que el "
                                "inicial.", icon='ERROR')
             else:
-                n = s.loop_end - s.loop_start + 1
-                fps = (context.scene.render.fps
-                       / context.scene.render.fps_base)
-                box.label(text="Se repite cada %d frames (%.1f s). La "
-                               "velocidad y los demas ajustes se ponen "
-                               "arriba." % (n, n / fps), icon='INFO')
+                scn = context.scene
+                fps = scn.render.fps / scn.render.fps_base
+                plan = looping.LoopPlan(s.loop_start, s.loop_end, fps,
+                                        s.loop_close_end)
+                box.prop(s, "loop_close_end")
+                box.label(text="Periodo %d frames (%.2f s). Frame %d = frame %d."
+                          % (plan.frames, plan.period, s.loop_end if plan.close_end
+                             else s.loop_end + 1, s.loop_start), icon='INFO')
+                al = getattr(scn, "al", None)
+                drv0 = get_driver(scn, s) if s.audio_enabled else None
+                r = plan.rates(s.speed, s.spin, s.color_speed,
+                               drv0.bpm if drv0 is not None else s.bpm,
+                               len(acolors.palette_list(al)) if al else 1)
+                col = box.column(align=True)
+                col.scale_y = 0.85
+                col.label(text="Ciclos por loop (ajustados para cerrar):")
+                col.label(text="  Barrido %d · Respiracion %d · Onda %d"
+                          % (abs(r.cyc_sweep), abs(r.cyc_breath),
+                             abs(r.cyc_wave)))
+                col.label(text="  Giro %d vueltas (%.0f grados/s) · Pulso %d"
+                          % (abs(r.cyc_spin), abs(math.degrees(r.spin_rate)),
+                             abs(r.cyc_pulse)))
+                if r.cyc_color:
+                    col.label(text="  Color %d pasos" % abs(r.cyc_color))
+                if s.audio_enabled:
+                    box.prop(s, "loop_audio_blend")
         lay.separator()
         lay.label(text="Pulso (estrobo)")
         drv = get_driver(context.scene, s) if s.audio_enabled else None

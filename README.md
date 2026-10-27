@@ -75,6 +75,7 @@ laser_audio_fx/
 │   ├── driver.py          puente audio -> motor (curvas + cache)
 │   ├── audio_color.py     color reactivo de cada rayo
 │   ├── engine.py          reconstruccion del rig (nucleo)
+│   ├── looping.py         loop: cierre de fases y audio periodico (sin bpy)
 │   ├── handlers.py        frame handler y modo en vivo
 │   ├── presets.py         presets de estilo completos
 │   ├── operators.py       crear, presets, marcar, demo, humo...
@@ -135,9 +136,24 @@ que el color viaje por el abanico.
 * **Repartir reacciones**: reparte disparadores entre varios rigs para que no
   reaccionen todos igual.
 * **Loopear la animacion** (panel *Movimiento y pulso*): el boton
-  `Loopear animacion` repite el movimiento, el color y el pulso entre los
-  dos frames que elijas; velocidad, barrido, giro y pulso se siguen
-  configurando en ese mismo panel.
+  `Loopear animacion` repite el rango `Desde el frame` .. `Hasta el frame`
+  (ambos incluidos). Por defecto (`Ultimo frame = primero`) el frame `fin` es
+  identico al frame `inicio` y el loop dura `fin - inicio` frames. Si lo apagas,
+  dura `fin - inicio + 1` (como `Ajustar rango al loop`) y el identico al inicio
+  es `fin + 1`: asi no hay frame duplicado al repetir el render.
+  Todo cierra por si solo: giro, barrido, respiracion, onda por rayo, pulso por
+  BPM y giro de color usan un numero entero de ciclos por loop (minimo 1: un
+  giro lento ya no se congela; el panel muestra los ciclos y los grados/s
+  efectivos). Con audio, la apertura, el brillo, el estrobo y la "ola" por rayo
+  se muestrean siempre dentro del rango, y en la ultima parte del loop (un beat)
+  se mezcla con lo que suena antes del inicio (`Suavizar el audio en la
+  costura`). `Movimiento` (el audio acelera barrido y giro) tambien funciona en
+  loop: deforma el tiempo pero cada oscilador termina con sus ciclos completos.
+  Para que los beats cuadren, usa un rango de compases enteros (boton `Ajustar
+  rango al loop`). Los colores por pasos (Beat/Seccion) cambian en el beat, asi
+  que la costura es un cambio de color mas. Los objetos con keyframes propios
+  (el rig, colisiones) siguen su propia animacion: el loop solo cubre lo que
+  calcula el plugin.
 * **Editor de humo** (`Anadir humo (haze)`) para que los haces se vean, ahora
   junto al resto de herramientas en un solo panel.
 * Una sola pestana (`Laser Audio FX`) con subpaneles plegables, en lugar de dos
@@ -145,6 +161,16 @@ que el color viaje por el abanico.
   *Ritmo y color*, impactos) y al final los plegados (audio avanzado,
   herramientas).
 * El registro es idempotente: puedes recargar el addon sin errores.
+
+### Corregido en 2.4.1
+
+* **Loopear animacion** cerraba mal: el periodo de las fases era `N - 1` frames
+  pero el de repeticion `N` (frame final duplicado, loop desfasado respecto a
+  los compases); un giro lento se redondeaba a 0 vueltas y se quedaba quieto;
+  `Movimiento` con audio se ignoraba en loop; y la apertura, el brillo, el
+  estrobo, la ola por rayo y el color reactivo dependian de audio que no es
+  periodico. Ahora todo vive en `lasers/looping.py` (con pruebas en
+  `tests/test_loop.py`).
 
 ### Corregido en 2.3
 

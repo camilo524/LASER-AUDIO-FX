@@ -97,20 +97,35 @@ class LZ_Settings(bpy.types.PropertyGroup):
                           description="Abre y cierra el abanico",
                           update=updates.on_settings_update)
     # ---------------------------------------------------------------- loop
-    # La animacion entera (barrido, giro, onda, respiracion, color y
-    # pulso) se repite entre dos frames: el tiempo se devuelve al inicio
-    # y todo vuelve a empezar igual que en el primer frame.
+    # La animacion entera (barrido, giro, onda por rayo, respiracion, color,
+    # pulso y la reaccion al audio) se repite entre dos frames; por defecto el
+    # frame END es igual al frame START (ver ``looping.py``).
     loop_anim: BoolProperty(
         name="Loopear animacion", default=False,
         description="Repite la animacion del rig entre los dos frames de "
-                    "abajo (velocidad y demas ajustes siguen en este panel)",
+                    "abajo, sin saltos al cerrar el ciclo (velocidad y demas "
+                    "ajustes siguen en este panel)",
         update=updates.on_settings_update)
     loop_start: IntProperty(
         name="Desde el frame", default=1, min=0,
         update=updates.on_settings_update)
     loop_end: IntProperty(
         name="Hasta el frame", default=250, min=1,
-        description="Ultimo frame del bucle (se repite incluido)",
+        description="Ultimo frame del bucle (incluido). Despues de este frame "
+                    "vuelve a empezar desde el primero",
+        update=updates.on_settings_update)
+    loop_close_end: BoolProperty(
+        name="Ultimo frame = primero", default=True,
+        description="El frame final es identico al inicial (el loop dura "
+                    "fin - inicio frames). Apagado: el loop dura fin - inicio + 1 "
+                    "frames y es el frame fin + 1 el que coincide con el inicio",
+        update=updates.on_settings_update)
+    loop_audio_blend: BoolProperty(
+        name="Suavizar el audio en la costura", default=True,
+        description="Con una cancion real, mezcla el ultimo beat del loop con "
+                    "lo que suena justo antes del inicio para que brillo, "
+                    "apertura, estrobo y colores continuos no den un salto. "
+                    "No hace falta con el Loop por BPM",
         update=updates.on_settings_update)
 
     bpm: FloatProperty(

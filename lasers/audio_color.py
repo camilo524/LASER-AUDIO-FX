@@ -93,10 +93,18 @@ class Sampler:
     def color(self, i):
         """Color del rayo ``i`` (0..1 por canal) o ``None`` si no aplica."""
         t = self.t - (i / self.n) * self.chase_s
+        if self.mode == 'GRADIENT':
+            # Continuo en el tiempo: en un loop se mezcla en la costura.
+            ta, tb, wb = self.drv.mix(t)
+            c = self._gradient(ta)
+            if wb > 0.0:
+                c = utils.rgb_lerp(c, self._gradient(tb), wb)
+            return c
+        # La "ola" mira hacia atras: en un loop ese instante tiene que seguir
+        # dentro del rango (sin loop, ``wrap`` no cambia nada).
+        t = self.drv.wrap(t)
         if self.mode == 'SPECTRUM':
             return self._spectrum(t)
-        if self.mode == 'GRADIENT':
-            return self._gradient(t)
         if self.mode == 'ENERGY':
             return self._energy(t, i)
         return self._sequential(self._state(t), i)
