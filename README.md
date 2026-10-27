@@ -134,6 +134,10 @@ que el color viaje por el abanico.
   o pierdas el mp3 (sin volver a analizar).
 * **Repartir reacciones**: reparte disparadores entre varios rigs para que no
   reaccionen todos igual.
+* **Loopear la animacion** (panel *Movimiento y pulso*): el boton
+  `Loopear animacion` repite el movimiento, el color y el pulso entre los
+  dos frames que elijas; velocidad, barrido, giro y pulso se siguen
+  configurando en ese mismo panel.
 * **Editor de humo** (`Anadir humo (haze)`) para que los haces se vean, ahora
   junto al resto de herramientas en un solo panel.
 * Una sola pestana (`Laser Audio FX`) con subpaneles plegables, en lugar de dos

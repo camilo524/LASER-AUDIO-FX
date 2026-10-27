@@ -98,6 +98,25 @@ class LAFX_PT_anim(_RigPanel, bpy.types.Panel):
                                  "wave_cycles", "breath"))
         lay = self.layout
         lay.separator()
+        lay.label(text="Loopear animacion", icon='LOOP_BACK')
+        row = lay.row(align=True)
+        row.prop(s, "loop_anim", toggle=True)
+        if s.loop_anim:
+            box = lay.box()
+            row = box.row(align=True)
+            row.prop(s, "loop_start", text="Desde el frame")
+            row.prop(s, "loop_end", text="Hasta el frame")
+            if s.loop_end <= s.loop_start:
+                box.label(text="El frame final debe ser mayor que el "
+                               "inicial.", icon='ERROR')
+            else:
+                n = s.loop_end - s.loop_start + 1
+                fps = (context.scene.render.fps
+                       / context.scene.render.fps_base)
+                box.label(text="Se repite cada %d frames (%.1f s). La "
+                               "velocidad y los demas ajustes se ponen "
+                               "arriba." % (n, n / fps), icon='INFO')
+        lay.separator()
         lay.label(text="Pulso (estrobo)")
         drv = get_driver(context.scene, s) if s.audio_enabled else None
         if drv is not None:

@@ -96,6 +96,23 @@ class LZ_Settings(bpy.types.PropertyGroup):
     breath: FloatProperty(name="Respiracion", default=0.3, min=0.0, max=0.9,
                           description="Abre y cierra el abanico",
                           update=updates.on_settings_update)
+    # ---------------------------------------------------------------- loop
+    # La animacion entera (barrido, giro, onda, respiracion, color y
+    # pulso) se repite entre dos frames: el tiempo se devuelve al inicio
+    # y todo vuelve a empezar igual que en el primer frame.
+    loop_anim: BoolProperty(
+        name="Loopear animacion", default=False,
+        description="Repite la animacion del rig entre los dos frames de "
+                    "abajo (velocidad y demas ajustes siguen en este panel)",
+        update=updates.on_settings_update)
+    loop_start: IntProperty(
+        name="Desde el frame", default=1, min=0,
+        update=updates.on_settings_update)
+    loop_end: IntProperty(
+        name="Hasta el frame", default=250, min=1,
+        description="Ultimo frame del bucle (se repite incluido)",
+        update=updates.on_settings_update)
+
     bpm: FloatProperty(
         name="BPM", default=120.0, min=1.0, soft_max=220.0,
         description="BPM del pulso. Si el rig reacciona al audio se usa el de la "

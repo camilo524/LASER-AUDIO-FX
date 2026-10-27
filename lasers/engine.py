@@ -115,6 +115,12 @@ def update_rig(rig, scene=None, dg=None):
     render = scene.render
     fps = render.fps / render.fps_base
     frame = scene.frame_current + scene.frame_subframe
+    if s.loop_anim:
+        # Loopear: al pasar el frame final el tiempo vuelve al inicio,
+        # asi el movimiento, el color y el pulso se repiten identicos.
+        start = float(s.loop_start)
+        span = float(max(1, s.loop_end - s.loop_start + 1))
+        frame = start + (frame - start) % span
     t = frame / fps + s.time_offset
     w = K.TAU * 0.25 * s.speed            # frecuencia base: 0.25 Hz * velocidad
 
