@@ -82,7 +82,10 @@ class LAFX_PT_palette(bpy.types.Panel):
         if s.color_mode == 'SPECTRUM':
             lay.label(text="Graves = rojo, medios = verde, agudos = azul.")
         if s.color_mode != 'NONE':
+            lay.prop(s, "color_spread")
             lay.prop(s, "seed")
+            lay.label(text="Este modo y esta paleta los usan rayos y luces.",
+                      icon='INFO')
 
 
 class LAFX_PT_react(bpy.types.Panel):

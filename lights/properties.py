@@ -157,11 +157,18 @@ class AL_Settings(bpy.types.PropertyGroup):
         ('SEQUENCE', "En secuencia", ""), ('PINGPONG', "Ida y vuelta", ""),
         ('RANDOM', "Aleatorio", "")], default='SEQUENCE',
         update=_refresh_rigs)
-    color_spread: EnumProperty(name="Entre luces", items=[
-        ('SAME', "Todas igual", "Todas las luces del mismo color a la vez"),
-        ('OFFSET', "Desfasadas", "Cada luz va un color adelante de la anterior"),
-        ('RANDOM', "Independientes", "Cada luz tiene su propia secuencia")],
-        default='SAME')
+    # Un solo reparto del color, compartido por rayos y luces
+    color_spread: EnumProperty(
+        name="Reparto del color", items=[
+            ('OFFSET', "Desfasado",
+             "El color avanza de un objeto al siguiente: en los rayos alterna "
+             "rayo a rayo (el clasico abanico) y en las luces va en cadena"),
+            ('SAME', "Todos igual", "Todos del mismo color a la vez"),
+            ('BLOCKS', "Por bloques",
+             "Un bloque de rayos por color (en las luces: como Desfasado)"),
+            ('RANDOM', "Independiente",
+             "Cada rayo o luz con su propia secuencia (usa la semilla)")],
+        default='OFFSET', update=_refresh_rigs)
     transition: EnumProperty(name="Transicion", items=[
         ('CUT', "Corte seco", ""), ('FADE', "Fundido", "")], default='CUT')
     fade_frames: IntProperty(name="Frames de fundido", default=6, min=1, max=120)

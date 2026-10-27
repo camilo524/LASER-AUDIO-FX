@@ -27,8 +27,9 @@ class LAFX_PT_lights(bpy.types.Panel):
     def draw(self, context):
         s = context.scene.al
         lay = self.layout
-        lay.label(text="Solo luces y mallas con emision.", icon='INFO')
-        lay.label(text="Los lasers ya siguen el audio solos.")
+        lay.label(text="Cualquier objeto con material: se le crea la emision.",
+                  icon='INFO')
+        lay.label(text="Los rayos laser no van aqui: ya siguen el audio solos.")
         row = lay.row()
         row.template_list("AL_UL_items", "", s, "lights", s, "lights_index", rows=3)
         col = row.column(align=True)
@@ -66,7 +67,6 @@ class LAFX_PT_lights(bpy.types.Panel):
             if s.color_mode == 'NONE':
                 sub.label(text="El cambio de color esta en 'No animar' (panel Colores).",
                           icon='ERROR')
-            sub.prop(s, "color_spread")
             if s.color_mode not in ('GRADIENT', 'NONE'):
                 sub.prop(s, "transition")
                 if s.transition == 'FADE':

@@ -119,6 +119,8 @@ def update_rig(rig, scene=None, dg=None):
     w = K.TAU * 0.25 * s.speed            # frecuencia base: 0.25 Hz * velocidad
 
     aud = _AudioState(scene, s, frame)
+    # con audio, el BPM del pulso es el de la cancion (no hay que escribirlo)
+    bpm = aud.drv.bpm if aud.drv is not None else s.bpm
     if aud.drv is not None and s.audio_on_speed:
         w *= 1.0 + s.audio_speed * (aud.level - 0.4)
 
@@ -146,7 +148,7 @@ def update_rig(rig, scene=None, dg=None):
 
     sampler = None
     if aud.drv is not None and al is not None and s.audio_on_color:
-        smp = audio_color.Sampler(aud.drv, al, aud.t, N, s.color_mode,
+        smp = audio_color.Sampler(aud.drv, al, aud.t, N, al.color_spread,
                                   s.audio_color_chase)
         if smp.mode is not None:
             sampler = smp
@@ -156,8 +158,8 @@ def update_rig(rig, scene=None, dg=None):
 
     for i in range(N):
         level = aud.level
-        if aud.drv is not None and s.audio_chase > 0.0:
-            level = aud.level_at(aud.t - s.audio_chase * aud.T * (i / N))
+        if aud.drv is not None and s.chase > 0.0:
+            level = aud.level_at(aud.t - s.chase * aud.T * (i / N))
 
         # ---- patron de direcciones (eje local +Z) ----
         if s.pattern == 'CONE':
@@ -186,10 +188,14 @@ def update_rig(rig, scene=None, dg=None):
         # ---- color (reactivo o de la paleta del rig) ----
         c = sampler.color(i) if sampler is not None else None
         if c is None:
-            if s.color_mode == 'BLOCKS':
+            # Un solo reparto del color para rayos y luces: al.color_spread
+            reparto = al.color_spread if al is not None else 'OFFSET'
+            if reparto == 'BLOCKS':
                 ci = (i * nc // N + shift) % nc
-            elif s.color_mode == 'RANDOM':
+            elif reparto == 'RANDOM':
                 ci = (utils.hash_idx(i, seed, nc) + shift) % nc
+            elif reparto == 'SAME':
+                ci = shift % nc
             else:
                 ci = (i + shift) % nc
             c = pal[ci]
@@ -200,7 +206,7 @@ def update_rig(rig, scene=None, dg=None):
             if aud.drv is not None and s.audio_strobe:
                 f = level
             else:
-                f = 0.5 + 0.5 * math.cos(K.TAU * (t * s.bpm / 60.0 + s.chase * i / N))
+                f = 0.5 + 0.5 * math.cos(K.TAU * (t * bpm / 60.0 + s.chase * i / N))
             pulse = 1.0 - s.pulse * (1.0 - f ** 3)
         bright = s.intensity * pulse * aud.brightness(s, level)
         if bright <= 1e-4:

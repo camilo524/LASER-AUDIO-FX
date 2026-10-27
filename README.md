@@ -30,16 +30,20 @@ Tambien puedes copiar la carpeta `laser_audio_fx` dentro de
 
 1. **Configura la fuente** (panel principal): elige una cancion y pulsa
    *Analizar cancion*, o usa **Loop por BPM** para trabajar sin audio.
-2. **Crea el rig**: panel *Lasers* > *Crear Laser Rig* (aparece en el cursor 3D).
+2. **Crea el rig**: panel *Lasers* > *Crear Laser Rig* (aparece en el cursor 3D,
+   ya reaccionando al audio).
 3. **Ajusta el estilo**: el desplegable de estilo + boton `PRESET`
    (Discoteca, Techno, Show grande, Ambiente, Estrobo, Fuego).
-4. **Abre `Audio (ritmo)`** y elige a que reacciona (kick, graves, medios,
-   agudos, beat...) y el modo de color reactivo.
+4. **Color y ritmo**: la paleta y el cambio de color estan una sola vez en el
+   panel **Colores** (los usan rayos y luces). El boton **Color** del panel
+   *Ritmo y color* basta para animar los rayos: no hay que activar nada mas.
 5. Pulsa *Reproducir*: el rig se reconstruye en cada frame siguiendo la musica.
 
-Para luces reales (spots, mallas emisivas) usa los paneles *Luces a animar*,
-*Colores de las luces* y *Hornear keyframes*: ahi esta el comportamiento
-original de `audio_lights_sync.py`, incluidos marcadores y el `.edl` para Resolve.
+Para luces reales (spots, mallas emisivas) usa el panel **Luces**: cualquier
+objeto con material se puede agregar (si no tiene emision, se le crea) y ahi
+estan *Que animar*, el modo en vivo y *Hornear keyframes*, mas las herramientas
+(marcadores, `.edl` para Resolve, spin, sway) en **Herramientas**. Los rayos
+laser no se agregan a esa lista: ya siguen el audio por su cuenta.
 
 ---
 
@@ -97,24 +101,27 @@ asi que la reaccion es instantanea y no crea ni un keyframe:
 * `audio_brightness` -> cuanto manda el nivel en la intensidad del rayo.
 * `audio_spread` -> el abanico se abre en los picos y se cierra en los silencios.
 * `audio_speed` -> el movimiento (barrido, giro, onda) acelera con la musica.
-* `audio_strobe` -> el pulso de `Animacion > Pulso` se dispara con el audio en
+* `audio_strobe` -> el pulso de `Movimiento y pulso` se dispara con el audio en
   vez de con el BPM escrito.
-* `audio_chase` -> retraso por rayo, que crea olas de luz que recorren el abanico.
+* `chase` (**Persecucion**) -> retraso por rayo, que crea olas de luz que
+  recorren el abanico. Es el mismo ajuste para el pulso por BPM y para el audio.
 
-**Modos de color reactivo** (`audio_color_mode`):
+**Modos de cambio de color** (`scene.al.color_mode`, panel *Colores*):
 
 | Modo | Que hace |
 |---|---|
-| No reaccionar | Usa la paleta clasica del rig (`Colores`) |
+| No animar | Deja los colores como estan |
 | Cambio cada N beats | Salta de color de la paleta siguiendo el ritmo |
 | Por seccion | Cambia cuando la cancion cambia de energia (coro, drop) |
 | Segun energia | Mas volumen = colores mas altos de la paleta |
 | Degradado continuo | Recorre los colores suavemente |
-| Espectro (RGB) | Graves al rojo, medios al verde, agudos al azul |
+| Espectro (RGB) | Graves al rojo, medios al verde, agudos al azul (solo rayos) |
 
-El reparto entre rayos (Alternado / Bloques / Aleatorio) y la paleta se siguen
-usando, y `Ola de color (beats)` hace que el color viaje por el abanico. Si
-`scene.al` esta en modo **Libre (rango de tono)**, los lasers heredan ese rango.
+**Una sola paleta y un solo reparto.** La paleta (10 ranuras o modo Libre) y el
+**Reparto del color** (`scene.al.color_spread`: *Desfasado*, *Todos igual*,
+*Por bloques*, *Independiente*) viven en el panel *Colores* y los usan por igual
+rayos y luces: no hay que configurarlos dos veces. *Ola de color (beats)* hace
+que el color viaje por el abanico.
 
 ---
 
@@ -130,8 +137,23 @@ usando, y `Ola de color (beats)` hace que el color viaje por el abanico. Si
 * **Editor de humo** (`Anadir humo (haze)`) para que los haces se vean, ahora
   junto al resto de herramientas en un solo panel.
 * Una sola pestana (`Laser Audio FX`) con subpaneles plegables, en lugar de dos
-  paneles separados.
+  paneles separados: fuente -> colores -> luces -> lasers (forma, movimiento,
+  *Ritmo y color*, impactos) y al final los plegados (audio avanzado,
+  herramientas).
 * El registro es idempotente: puedes recargar el addon sin errores.
+
+### Corregido en 2.3
+
+* El humo usaba un nodo de volumen inexistente: `Anadir humo (haze)` fallaba en
+  Blender 5.2.
+* **Cualquier objeto con material se puede agregar** a la lista de luces: si no
+  tenia emision se le crea, en vez de ignorarlo en silencio.
+* **Los keyframes horneados mandan** sobre el modo en vivo (antes el vivo los
+  pisaba al reproducir).
+* Encender **Color** (o cualquier reaccion) ya activa *Reaccionar al audio*: los
+  rayos se animan con el boton de color, sin agregarlos a la lista de luces.
+* Un solo panel de *Ritmo y color* por rig (antes habia dos con el mismo
+  interruptor de color).
 
 ---
 

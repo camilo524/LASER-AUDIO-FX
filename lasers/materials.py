@@ -83,7 +83,7 @@ def haze_material():
         pass
     nt = mat.node_tree
     nt.nodes.clear()
-    vol = nt.nodes.new("ShaderNodePrincipledVolume")
+    vol = nt.nodes.new("ShaderNodeVolumePrincipled")
     vol.inputs["Density"].default_value = 0.015
     vol.inputs["Anisotropy"].default_value = 0.5
     out = nt.nodes.new("ShaderNodeOutputMaterial")

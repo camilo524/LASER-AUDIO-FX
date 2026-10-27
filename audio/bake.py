@@ -32,6 +32,9 @@ def run_bake(context):
 
     ana = analysis.build_analysis(scene)
     fps = analysis.scene_fps(scene)
+    # Las luces tratan "Por bloques" como "Desfasado": el reparto por bloques es
+    # cosa de los rayos, pero el control es el mismo (scene.al.color_spread).
+    spread_mode = 'OFFSET' if s.color_spread == 'BLOCKS' else s.color_spread
     f0, f1 = scene.frame_start, scene.frame_end
     start_frame = s.audio_start_frame if s.source == 'AUDIO' else f0
     nF = f1 - f0 + 1
@@ -104,17 +107,17 @@ def run_bake(context):
                 if free:
                     return [colors.free_color_at(s, b / max(1, n_states - 1))
                             for b in range(n_states)]
-                off = i if s.color_spread == 'OFFSET' else 0
+                off = i if spread_mode == 'OFFSET' else 0
                 return [pal[(b + off) % npal] for b in range(n_states)]
             if free:
-                if s.color_spread == 'SAME':
+                if spread_mode == 'SAME':
                     return base_seq
-                if s.color_spread == 'OFFSET':
+                if spread_mode == 'OFFSET':
                     return [base_seq[(k + i) % n_states] for k in range(n_states)]
                 return colors.make_free(n_states, s, random.Random(s.seed * 1000 + i))
-            if s.color_spread == 'SAME':
+            if spread_mode == 'SAME':
                 idxs = base_seq
-            elif s.color_spread == 'OFFSET':
+            elif spread_mode == 'OFFSET':
                 idxs = [(b + i) % npal for b in base_seq]
             else:
                 idxs = colors.make_sequence(n_states, npal, 'RANDOM',
@@ -134,7 +137,7 @@ def run_bake(context):
                 continue
             if cmode == 'GRADIENT':
                 offset = {'SAME': 0.0, 'OFFSET': i * 0.7,
-                          'RANDOM': rng_off.random() * npal}[s.color_spread]
+                          'RANDOM': rng_off.random() * npal}[spread_mode]
                 for j in key_idx:
                     pos = t[j] / (s.gradient_beats * T) + offset
                     if free:

@@ -11,7 +11,7 @@ from types import SimpleNamespace
 import bpy
 from bpy.app.handlers import persistent
 
-from ..audio.targets import Target
+from ..audio.targets import Target, has_keyframes
 from ..audio.triggers import CURVE_TRIGGERS
 from ..core.constants import PREFIX
 from ..lasers import driver as ldriver
@@ -43,18 +43,21 @@ def apply(scene):
 
     if s.animate_energy:
         for it, tg in items:
+            if has_keyframes(tg.idb, tg.en_path):
+                continue            # ya hornearon esta luz: manda el keyframe
             key = it.trigger if it.trigger in CURVE_TRIGGERS else 'BEAT'
             lvl = drv.raw_level(t - it.delay_beats * T, key)
             e = it.energy_min + (it.energy_max - it.energy_min) * lvl
             tg.put_energy(e * s.master)
 
     if s.animate_color:
-        sampler = Sampler(drv, s, t, len(items),
-                          'RANDOM' if s.color_spread == 'RANDOM' else 'CYCLE', 0.0)
+        # "Por bloques" es cosa de los rayos: aqui se comporta como "Desfasado"
+        reparto = 'OFFSET' if s.color_spread == 'BLOCKS' else s.color_spread
+        sampler = Sampler(drv, s, t, len(items), reparto, 0.0)
         if sampler.mode is not None:
             same = s.color_spread == 'SAME'
             for idx, (it, tg) in enumerate(items):
-                if it.color_mode == 'OFF':
+                if it.color_mode == 'OFF' or has_keyframes(tg.idb, tg.col_path):
                     continue
                 if it.color_mode == 'FIXED':
                     rgb = tuple(it.fixed_color)

@@ -19,7 +19,7 @@ Estructura
 bl_info = {
     "name": "Laser Audio FX",
     "author": "Camilo",
-    "version": (2, 2, 0),
+    "version": (2, 3, 0),
     "blender": (4, 2, 0),
     "location": "Vista 3D > Barra lateral (N) > Laser Audio FX",
     "description": "Rayos laser procedurales con colisiones, rebotes e impactos "

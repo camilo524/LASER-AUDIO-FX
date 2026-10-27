@@ -1,8 +1,13 @@
 """Objetivo animable: una luz de Blender o una malla con material emisivo.
 
 Aqui vive todo lo que toca fcurves y keyframes, tanto para el horneado como
-para las herramientas (spin, sway).
+para las herramientas (spin, sway). Tambien sabe preparar un objeto para
+que pueda emitir luz aunque su material todavia no lo haga.
 """
+
+import bpy
+
+from ..core.constants import PREFIX
 
 
 def _fcurves(idb):
@@ -40,6 +45,43 @@ def set_interp(idb, path, interp):
                     kp.interpolation = interp
     except Exception:
         pass
+
+
+def has_keyframes(idb, path):
+    """True si el ID ya tiene curvas en ese canal (keyframes horneados)."""
+    return any(fc.data_path == path for _coll, fc in _fcurves(idb))
+
+
+def ensure_emission(obj):
+    """Prepara un objeto para poder emitir: crea material emisivo si hace falta.
+
+    Asi cualquier malla se puede agregar a la lista, tenga o no emision. Si el
+    objeto no tenia material, se le asigna uno nuevo (queda emisivo, para que
+    se vea la animacion).
+    """
+    if obj.type != 'MESH' or obj.data is None:
+        return False
+    if emission_sockets(obj):
+        return True
+    try:
+        mat = obj.data.materials[0] if len(obj.data.materials) else None
+        if mat is None:
+            mat = bpy.data.materials.new(PREFIX + "Emisivo")
+            obj.data.materials.append(mat)
+        if not mat.use_nodes or mat.node_tree is None:
+            mat.use_nodes = True
+        nt = mat.node_tree
+        out = next((n for n in nt.nodes if n.type == 'OUTPUT_MATERIAL'), None)
+        if out is None:
+            out = nt.nodes.new("ShaderNodeOutputMaterial")
+        em = next((n for n in nt.nodes if n.type == 'EMISSION'), None)
+        if em is None:
+            em = nt.nodes.new("ShaderNodeEmission")
+            em.location = (out.location.x - 220.0, out.location.y - 180.0)
+        nt.links.new(em.outputs[0], out.inputs["Surface"])
+    except Exception:
+        return False
+    return emission_sockets(obj) is not None
 
 
 def emission_sockets(obj):

@@ -8,30 +8,44 @@ from bpy.props import BoolProperty, EnumProperty, FloatProperty, IntProperty, St
 from bpy_extras.io_utils import ExportHelper
 
 from ..audio import analysis, bake, colors, triggers
-from ..audio.targets import Prefs, Target, set_interp
+from ..audio.targets import Prefs, Target, ensure_emission, set_interp
 from ..core.constants import MARKER_PREFIX, PREFIX
 
 
 class AL_OT_add_selected(bpy.types.Operator):
     bl_idname = "al.add_selected"
     bl_label = "Agregar seleccion"
-    bl_description = "Agrega las luces (y mallas con emision) seleccionadas a la lista"
+    bl_description = ("Agrega las luces y mallas seleccionadas. Si una malla "
+                      "todavia no tiene emision, se le crea un material emisivo")
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
         s = context.scene.al
         have = {it.obj for it in s.lights if it.obj}
-        added = 0
-        lasers = 0
+        added = rays = no_emision = no_animable = repetidos = 0
         for obj in context.selected_objects:
             if obj in have:
+                repetidos += 1
                 continue
+            # los rayos ya reaccionan solos con su propio rig
             if (obj.name.startswith(PREFIX)
                     or getattr(getattr(obj, "laserfx", None), "is_rig", False)):
-                lasers += 1
+                rays += 1
                 continue
-            tg = Target(obj)
+            if obj.type == 'LIGHT':
+                tg = Target(obj)
+            elif obj.type == 'MESH':
+                tg = Target(obj)
+                if not tg.ok and ensure_emission(obj):
+                    tg = Target(obj)
+                if not tg.ok:
+                    no_emision += 1
+                    continue
+            else:
+                no_animable += 1
+                continue
             if not tg.ok:
+                no_animable += 1
                 continue
             it = s.lights.add()
             it.obj = obj
@@ -40,10 +54,18 @@ class AL_OT_add_selected(bpy.types.Operator):
             it.energy_min = it.energy_max * 0.05
             added += 1
         s.lights_index = max(0, len(s.lights) - 1)
-        msg = "%d objetos agregados" % added
-        if lasers:
-            msg += " (los rayos no hace falta agregarlos: ya siguen el audio solos)"
-        self.report({'INFO'}, msg)
+
+        bits = ["%d agregados" % added]
+        if rays:
+            bits.append("%d rayos (ya se animan solos, no hace falta agregarlos)"
+                        % rays)
+        if repetidos:
+            bits.append("%d ya estaban en la lista" % repetidos)
+        if no_emision:
+            bits.append("%d sin emision" % no_emision)
+        if no_animable:
+            bits.append("%d sin material ni luz (no se pueden animar)" % no_animable)
+        self.report({'INFO'}, ". ".join(bits))
         return {'FINISHED'}
 
 

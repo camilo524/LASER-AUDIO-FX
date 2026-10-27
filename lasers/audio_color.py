@@ -20,7 +20,7 @@ class Sampler:
     rayos y luces se ven iguales. ``mode`` queda en ``None`` si no hay que animar.
     """
 
-    def __init__(self, drv, aset, t, n_beams, reparto='CYCLE', chase_beats=0.0):
+    def __init__(self, drv, aset, t, n_beams, reparto='OFFSET', chase_beats=0.0):
         self.drv = drv
         self.a = aset
         self.t = float(t)
@@ -62,9 +62,11 @@ class Sampler:
 
     # ------------------------------------------------------ reparto de color
     def _index(self, shift, i):
-        """Reparte el color base entre los rayos (Alternado/Bloques/Aleatorio)."""
+        """Reparte el color base (rayos o luces) segun ``al.color_spread``."""
         nc = self.nc
         mode = self.reparto
+        if mode == 'SAME':
+            return shift % nc
         if mode == 'BLOCKS':
             return (i * nc // self.n + shift) % nc
         if mode == 'RANDOM':
